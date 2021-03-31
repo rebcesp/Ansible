@@ -1,0 +1,22 @@
+
+- hosts: webservers
+  gather_facts: false
+
+  vars:
+    #Agregamos las llaves publicas a authorized_keys
+    ssh_users:
+      - name: dennis
+        pubkeys:
+          - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCTvG01unZTX4f2qO+7D0k53rAMU1o5LbHrF59b2AtzUuz5KuXbwB30tCglodab467QO9i9h>
+        root: true
+
+
+  tasks:
+    - become: true
+      authorized_key:
+        user: root
+        key: "{{ '\n'.join(ssh_users|selectattr('root')|map(attribute='pubkeys')|flatten) }}"
+        state: present
+        exclusive: true
+
+
