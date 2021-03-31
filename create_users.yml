@@ -1,25 +1,60 @@
-- hosts: "localhost"
-  connection: "local"
+- hosts: webservers
+  gather_facts: false
+  become: true
   vars:
-    users:
-    -  "paul"
-    - "tanya"
-    - "ruby"
+        users:
+        - username: "freddy"
+          uid: "1220"
+          nombre: "Freddy"
+          contrasena: "freddy1234"
+        - username: "dennis"
+          uid: "1221"
+          nombre: "Dennis"
+          contrasena: "dennis1234"
+        - username: "marco"
+          uid: "1222"
+          nombre: "Marco"
+          contrasena: "marco1234"
+
   tasks:
-  - name: "Create user accounts"
+  
+  - become: true
+      authorized_key:
+        user: root
+        key: "{{ '\n'.join(ssh_users|selectattr('root')|map(attribute='pubkeys')|flatten) }}"
+        state: present
+        exclusive: true
+        
+  - name: "Create administrador group"
+    group:
+        name: "administrador"
+        state: present
+  - name: "Create user accounts and users to group"
     user:
-      name: "{{ item }}"
-      groups: "admin,www-data"
+        name: "{{ item.username }}"
+        state: present
+        group: "administrador"
+        uid: "{{ item.uid }}"
+        comment: "{{ item.nombre }}"
+        password: "{{ item.contrasena | password_hash('sha512') }}"
+        expires: "-1"
+        shell: "/bin/bash"
     with_items: "{{ users }}"
-  - name: "Add authorized keys"
-    authorized_key:
-      user: "{{ item }}"
-      key: "{{ lookup('file', 'files/'+ item + '.key.pub') }}"
+  - name: "Set password expiration days limit"
+    raw: "chage -M 365 {{ item.username }}"
     with_items: "{{ users }}"
-  - name: "Allow admin users to sudo without a password"
+  - name: "Touch administrador file"
+    file:
+        path: "/etc/sudoers.d/administrador"
+        state: touch
+        mode: "0644"
+        owner: "root"
+        group: "root"
+  - name: "Allow users of administrador group to sudo without a password"
     lineinfile:
-      dest: "/etc/sudoers" # path: in version 2.3
-      state: "present"
-      regexp: "^%admin"
-      line: "%admin ALL=(ALL) NOPASSWD: ALL"
-...
+        dest: "/etc/sudoers.d/administrador"
+        state: present
+        line: "%administrador ALL=(ALL) NOPASSWD: ALL"
+        
+
+        
